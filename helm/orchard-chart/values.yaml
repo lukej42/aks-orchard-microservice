@@ -1,10 +1,12 @@
 image:
-  repository: "myacr.azurecr.io/orchard-core"
+  repository: example654.azurecr.io/orchard
   tag: "latest" 
   pullPolicy: IfNotPresent
 
+replicaCount: 2
+
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 80
 
 # Placeholders that each site instance will override
@@ -14,10 +16,10 @@ tenant:
   connectionString: ""
   adminPassword: ""
 
-ingress:
-  enabled: true
-  className: "nginx"
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-  host: "placeholder.com"
+#ingress:
+#  enabled: true
+#  className: "nginx"
+#  annotations:
+#    kubernetes.io/ingress.class: nginx
+#    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+#  host: "placeholder.com"
