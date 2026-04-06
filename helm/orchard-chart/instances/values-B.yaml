@@ -4,5 +4,5 @@ tenant:
   adminPassword: "StrongPassword123!"
   connectionString: "Server=tcp:your-db.database.windows.net;Database=AlphaDB;User ID=admin;Password=..."
 
-ingress:
-  host: "siteb.yourdomain.com"
+service:
+  type: LoadBalancer
