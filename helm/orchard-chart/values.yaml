@@ -1,0 +1,23 @@
+image:
+  repository: "myacr.azurecr.io/orchard-core"
+  tag: "latest" 
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Placeholders that each site instance will override
+tenant:
+  name: "default"
+  recipe: "Core"
+  connectionString: ""
+  adminPassword: ""
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  host: "placeholder.com"

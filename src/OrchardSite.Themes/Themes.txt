@@ -1,0 +1,6 @@
+Name: MyProductionTheme
+Author: Your Team
+Description: A shared theme for all AKS instances.
+Category: Layout
+Version: 1.0.0
+Tags: Bootstrap, MultiTenant

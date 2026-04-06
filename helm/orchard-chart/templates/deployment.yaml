@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: orchard-app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          env:
+            # Orchard Core Auto-Setup Variables
+            - name: ORCHARD_APP_DATA
+              value: "/app/App_Data"
+            - name: ORCHARD_CORE_SHELL_NAME
+              value: "{{ .Values.tenant.name }}"
+            - name: ORCHARD_CORE_SETUP_RECIPE
+              value: "{{ .Values.tenant.recipe }}"
+            - name: ORCHARD_CORE_DATABASE_PROVIDER
+              value: "SqlConnection"
+            - name: ORCHARD_CORE_CONNECTION_STRING
+              value: "{{ .Values.tenant.connectionString }}"
+            - name: ORCHARD_CORE_ADMIN_USER
+              value: "admin"
+            - name: ORCHARD_CORE_ADMIN_PASSWORD
+              value: "{{ .Values.tenant.adminPassword }}"
