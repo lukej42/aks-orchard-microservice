@@ -1,9 +1,18 @@
+using Microsoft.AspNetCore.HttpOverrides;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add Orchard Core CMS services
 builder.Services.AddOrchardCms();
+builder.Services.AddHealthChecks();
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -11,13 +20,15 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseStaticFiles();
-
-// 2. Routing and Orchard Pipeline
 app.UseRouting();
-
-// enables Multi-Tenancy
 app.UseOrchardCore();
+
+app.MapHealthChecks("/health");
 
 app.Run();

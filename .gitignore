@@ -1,0 +1,25 @@
+## Build
+bin/
+obj/
+out/
+*.user
+*.suo
+.vs/
+.vscode/
+
+## Orchard local data
+App_Data/
+
+## Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars.local
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Secrets
+*.env
+.env.*

@@ -1,0 +1,118 @@
+# Provision and update Azure infrastructure (AKS, ACR, Azure SQL).
+# Create a separate Azure DevOps pipeline pointing at this file.
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - terraform/**
+
+parameters:
+  - name: terraformEnvironment
+    type: string
+    default: dev
+    values:
+      - dev
+  - name: runApply
+    type: boolean
+    default: false
+
+variables:
+  terraformVersion: '1.5.7'
+  workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+  tfvarsFile: '$(System.DefaultWorkingDirectory)/terraform/environments/${{ parameters.terraformEnvironment }}/terraform.tfvars'
+  azureServiceConnection: 'orchard-azure-connection'
+
+stages:
+  - stage: Validate
+    displayName: Validate Terraform
+    jobs:
+      - job: TerraformValidate
+        displayName: Format, init, validate, plan
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          - task: TerraformInstaller@1
+            displayName: Install Terraform
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          - task: TerraformTaskV4@4
+            displayName: Terraform init
+            inputs:
+              provider: azurerm
+              command: init
+              workingDirectory: $(workingDirectory)
+              backendServiceArm: $(azureServiceConnection)
+              backendAzureRmResourceGroupName: 'terraform-deploy'
+              backendAzureRmStorageAccountName: 'terraformsflg'
+              backendAzureRmContainerName: 'aks-orchard-microservice'
+              backendAzureRmKey: '${{ parameters.terraformEnvironment }}.tfstate'
+
+          - script: |
+              terraform fmt -check -recursive
+            displayName: Terraform fmt check
+            workingDirectory: $(workingDirectory)
+
+          - task: TerraformTaskV4@4
+            displayName: Terraform validate
+            inputs:
+              provider: azurerm
+              command: validate
+              workingDirectory: $(workingDirectory)
+
+          - task: TerraformTaskV4@4
+            displayName: Terraform plan
+            inputs:
+              provider: azurerm
+              command: plan
+              workingDirectory: $(workingDirectory)
+              environmentServiceNameAzureRM: $(azureServiceConnection)
+              commandOptions: '-var-file=$(tfvarsFile) -out=$(Pipeline.Workspace)/terraform.tfplan'
+              publishPlanResults: 'terraform-plan'
+
+  - stage: Apply
+    displayName: Apply Terraform
+    dependsOn: Validate
+    condition: and(succeeded(), eq('${{ parameters.runApply }}', 'true'))
+    jobs:
+      - deployment: TerraformApply
+        displayName: Apply infrastructure
+        environment: 'terraform-${{ parameters.terraformEnvironment }}'
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformInstaller@1
+                  displayName: Install Terraform
+                  inputs:
+                    terraformVersion: $(terraformVersion)
+
+                - task: TerraformTaskV4@4
+                  displayName: Terraform init
+                  inputs:
+                    provider: azurerm
+                    command: init
+                    workingDirectory: $(workingDirectory)
+                    backendServiceArm: $(azureServiceConnection)
+                    backendAzureRmResourceGroupName: 'terraform-deploy'
+                    backendAzureRmStorageAccountName: 'terraformsflg'
+                    backendAzureRmContainerName: 'aks-orchard-microservice'
+                    backendAzureRmKey: '${{ parameters.terraformEnvironment }}.tfstate'
+
+                - task: TerraformTaskV4@4
+                  displayName: Terraform apply
+                  inputs:
+                    provider: azurerm
+                    command: apply
+                    workingDirectory: $(workingDirectory)
+                    environmentServiceNameAzureRM: $(azureServiceConnection)
+                    commandOptions: '-var-file=$(tfvarsFile) -auto-approve'

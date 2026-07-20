@@ -1,25 +1,62 @@
 image:
-  repository: example654.azurecr.io/orchard
-  tag: "latest" 
+  repository: lgexample654.azurecr.io/myapp
+  tag: "1.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 2
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 80
 
-# Placeholders that each site instance will override
+# Shared SQL database — all tenants reference this via connectionStringRef: shared
+database:
+  connectionString: "Server=tcp:your-sql.database.windows.net,1433;Database=OrchardDb;User ID=sqladmin;Password=CHANGE_ME;Encrypt=True;TrustServerCertificate=False;"
+
 tenant:
   name: "default"
-  recipe: "Core"
-  connectionString: ""
+  recipe: "Agency"
+  adminUser: "admin"
   adminPassword: ""
+  # Set to "shared" to use database.connectionString above, or provide a full override string
+  connectionStringRef: shared
+  connectionString: ""
+  # Required when multiple instances share one database
+  tablePrefix: ""
 
-#ingress:
-#  enabled: true
-#  className: "nginx"
-#  annotations:
-#    kubernetes.io/ingress.class: nginx
-#    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-#  host: "placeholder.com"
+persistence:
+  enabled: true
+  # ReadWriteMany required when replicaCount > 1 (use azurefile-csi on AKS)
+  accessMode: ReadWriteMany
+  size: 10Gi
+  storageClassName: azurefile-csi
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+probes:
+  liveness:
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 5
+  readiness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+
+ingress:
+  enabled: false
+  className: "nginx"
+  host: "placeholder.example.com"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  tls:
+    enabled: true
+    secretName: ""
+
+extraEnv: []

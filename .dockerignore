@@ -1,0 +1,14 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/*.user
+**/*.suo
+**/.DS_Store
+**/App_Data
+**/.terraform
+**/*.tfstate
+**/*.tfstate.*
+.terraform.lock.hcl

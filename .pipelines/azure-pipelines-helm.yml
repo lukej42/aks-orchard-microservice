@@ -1,0 +1,103 @@
+# Build the app image and deploy Orchard tenants to AKS via Helm.
+# Create a separate Azure DevOps pipeline pointing at this file.
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - Dockerfile
+      - .dockerignore
+      - src/**
+      - helm/**
+
+parameters:
+  - name: deploy_sites
+    type: string
+    default: 'alpha,bravo,charlie'
+
+variables:
+  dockerRegistryServiceConnection: 'orchard-acr-connection'
+  kubernetesServiceConnection: 'orchard-aks-connection'
+  imageRepository: 'myapp'
+  containerRegistry: 'lgexample654.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '1.0'
+  helmNamespace: 'orchard'
+
+stages:
+  - stage: Validate
+    displayName: Validate Helm charts
+    jobs:
+      - job: HelmValidate
+        displayName: Lint and template charts
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+          - script: |
+              set -euo pipefail
+              for site in $(echo "${{ parameters.deploy_sites }}" | tr ',' ' '); do
+                echo "Linting values-$site.yaml"
+                helm lint helm/orchard-chart \
+                  -f helm/orchard-chart/values.yaml \
+                  -f helm/orchard-chart/instances/values-$site.yaml
+                echo "Templating orchard-$site"
+                helm template orchard-$site helm/orchard-chart \
+                  -f helm/orchard-chart/values.yaml \
+                  -f helm/orchard-chart/instances/values-$site.yaml \
+                  > /dev/null
+              done
+            displayName: Helm lint and template
+
+  - stage: Build
+    displayName: Build and push image
+    dependsOn: Validate
+    jobs:
+      - job: DockerBuild
+        displayName: Build Docker image
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+          - task: Docker@2
+            displayName: Build and push to ACR
+            inputs:
+              command: buildAndPush
+              containerRegistry: $(dockerRegistryServiceConnection)
+              repository: $(imageRepository)
+              dockerfile: $(dockerfilePath)
+              buildContext: $(Build.SourcesDirectory)
+              tags: |
+                $(tag)
+                latest
+
+  - stage: Deploy
+    displayName: Deploy to AKS
+    dependsOn: Build
+    jobs:
+      - ${{ each site in split(parameters.deploy_sites, ',') }}:
+        - deployment: Deploy_${{ site }}
+          displayName: Deploy ${{ site }}
+          environment: '${{ site }}'
+          pool:
+            vmImage: ubuntu-latest
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                  - checkout: self
+                  - task: HelmDeploy@0
+                    displayName: Helm upgrade ${{ site }}
+                    inputs:
+                      connectionType: Kubernetes Service Connection
+                      kubernetesServiceConnection: $(kubernetesServiceConnection)
+                      namespace: $(helmNamespace)
+                      command: upgrade
+                      install: true
+                      releaseName: orchard-${{ site }}
+                      chartType: FilePath
+                      chartPath: '$(Build.SourcesDirectory)/helm/orchard-chart'
+                      arguments: '--values $(Build.SourcesDirectory)/helm/orchard-chart/values.yaml --create-namespace'
+                      valueFile: '$(Build.SourcesDirectory)/helm/orchard-chart/instances/values-${{ site }}.yaml'

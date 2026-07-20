@@ -1,13 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-svc
+  name: {{ include "orchard-chart.fullname" . }}-svc
+  labels:
+    {{- include "orchard-chart.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type | default "ClusterIP" }}
+  type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port | default 80 }}
-      targetPort: 80
+    - port: {{ .Values.service.port }}
+      targetPort: http
       protocol: TCP
       name: http
   selector:
-    app: {{ .Release.Name }}
+    {{- include "orchard-chart.selectorLabels" . | nindent 4 }}

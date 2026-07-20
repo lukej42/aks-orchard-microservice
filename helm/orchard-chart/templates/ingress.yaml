@@ -1,12 +1,18 @@
-# helm/orchard-chart/templates/ingress.yaml
+{{- if .Values.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ .Release.Name }}-ingress
+  name: {{ include "orchard-chart.fullname" . }}-ingress
+  labels:
+    {{- include "orchard-chart.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
   annotations:
-    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
+  {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
   rules:
     - host: {{ .Values.ingress.host | quote }}
       http:
@@ -15,10 +21,13 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}-svc
+                name: {{ include "orchard-chart.fullname" . }}-svc
                 port:
-                  number: 80
-  tls: # This section handles HTTPS
+                  number: {{ .Values.service.port }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
     - hosts:
         - {{ .Values.ingress.host | quote }}
-      secretName: {{ .Release.Name }}-tls-secret
+      secretName: {{ .Values.ingress.tls.secretName | default (printf "%s-tls" (include "orchard-chart.fullname" .)) }}
+  {{- end }}
+{{- end }}

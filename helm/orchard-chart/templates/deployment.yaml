@@ -1,33 +1,96 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ include "orchard-chart.fullname" . }}
+  labels:
+    {{- include "orchard-chart.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Release.Name }}
+      {{- include "orchard-chart.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
         app: {{ .Release.Name }}
+        {{- include "orchard-chart.selectorLabels" . | nindent 8 }}
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: {{ .Release.Name }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: app-data
+          persistentVolumeClaim:
+            claimName: {{ include "orchard-chart.fullname" . }}-pvc
+      {{- end }}
       containers:
         - name: orchard-app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
           env:
-            # Orchard Core Auto-Setup Variables
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
             - name: ORCHARD_APP_DATA
               value: "/app/App_Data"
             - name: ORCHARD_CORE_SHELL_NAME
-              value: "{{ .Values.tenant.name }}"
+              value: {{ .Values.tenant.name | quote }}
             - name: ORCHARD_CORE_SETUP_RECIPE
-              value: "{{ .Values.tenant.recipe }}"
+              value: {{ .Values.tenant.recipe | quote }}
             - name: ORCHARD_CORE_DATABASE_PROVIDER
               value: "SqlConnection"
             - name: ORCHARD_CORE_CONNECTION_STRING
-              value: "{{ .Values.tenant.connectionString }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "orchard-chart.fullname" . }}-secrets
+                  key: connection-string
+            - name: ORCHARD_CORE_TABLE_PREFIX
+              value: {{ .Values.tenant.tablePrefix | quote }}
+            - name: OrchardCore__OrchardCore_Shells_Database__ConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "orchard-chart.fullname" . }}-secrets
+                  key: connection-string
+            - name: OrchardCore__OrchardCore_Shells_Database__DatabaseProvider
+              value: "SqlConnection"
             - name: ORCHARD_CORE_ADMIN_USER
-              value: "admin"
+              value: {{ .Values.tenant.adminUser | quote }}
             - name: ORCHARD_CORE_ADMIN_PASSWORD
-              value: "{{ .Values.tenant.adminPassword }}"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "orchard-chart.fullname" . }}-secrets
+                  key: admin-password
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/App_Data
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

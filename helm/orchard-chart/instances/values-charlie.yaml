@@ -1,0 +1,16 @@
+replicaCount: 2
+
+image:
+  repository: lgexample654.azurecr.io/myapp
+  tag: "1.0"
+  pullPolicy: IfNotPresent
+
+tenant:
+  name: "SiteCharlie"
+  tablePrefix: "charlie_"
+  adminPassword: "CHANGE_ME_CHARLIE"
+  connectionStringRef: shared
+
+ingress:
+  enabled: true
+  host: "charlie.example.com"

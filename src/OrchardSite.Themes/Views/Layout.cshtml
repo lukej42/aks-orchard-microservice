@@ -1,27 +1,21 @@
 <!DOCTYPE html>
-<html lang="{{ Culture.Name }}">
+<html lang="en">
 <head>
-    <title>@RenderTitleSegments(Site.SiteName)</title>
-    <link rel="stylesheet" href="~/MyProductionTheme/css/bootstrap.min.css">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orchard Site</title>
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <img src="/media/logo.png" width="30" height="30" alt="">
-                @Site.SiteName
-            </a>
-        </div>
+    <nav>
+        <a href="/">Home</a>
     </nav>
 
-    <div class="container mt-4">
+    <main>
         @RenderBody()
-    </div>
+    </main>
 
-    <footer class="footer border-top text-muted mt-5">
-        <div class="container text-center">
-            &copy; @DateTime.Now.Year - @Site.SiteName
-        </div>
+    <footer>
+        &copy; @DateTime.UtcNow.Year
     </footer>
 </body>
 </html>
